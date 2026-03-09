@@ -2,215 +2,218 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>CAR-OS PRO | Wireless Dashboard</title>
-    
-    <!-- External Assets -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mini Robo Car | PDR Dashboard</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/lucide@latest"></script>
-
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/lucide-react/0.263.1/lucide-react.min.js"></script>
+    <!-- Firebase App (the core Firebase SDK) -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <!-- Firebase Realtime Database -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800;900&display=swap');
-        
-        body { 
-            font-family: 'Inter', sans-serif; 
-            -webkit-tap-highlight-color: transparent; 
-            background-color: #020617;
+        body {
+            background-color: #0f172a; /* Slate 950 */
+            color: #f1f5f9; /* Slate 100 */
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            overflow-x: hidden;
         }
-
-        /* Custom scrollbar for logs */
-        .custom-scroll::-webkit-scrollbar { width: 4px; }
-        .custom-scroll::-webkit-scrollbar-track { background: transparent; }
-        .custom-scroll::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 10px; }
-
-        .btn-active { 
-            background-color: #2563eb !important; 
-            box-shadow: 0 0 20px rgba(37, 99, 235, 0.4);
+        .control-btn {
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            user-select: none;
+            touch-action: manipulation;
+        }
+        .control-btn:active {
             transform: scale(0.95);
+            background-color: #3b82f6; /* Blue 500 */
         }
-
-        .mode-tab.active {
-            background-color: #2563eb;
-            color: white;
-            box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+        .active-direction {
+            background-color: #3b82f6 !important;
+            box-shadow: 0 0 20px rgba(59, 130, 246, 0.5);
         }
-
-        canvas { touch-action: none; }
-        
-        input[type=range] {
-            -webkit-appearance: none;
-            background: #1e293b;
-            border-radius: 999px;
+        canvas {
+            touch-action: none;
         }
-        input[type=range]::-webkit-slider-thumb {
-            -webkit-appearance: none;
-            height: 18px;
-            width: 18px;
-            border-radius: 50%;
-            background: #3b82f6;
-            cursor: pointer;
-            box-shadow: 0 0 10px rgba(59, 130, 246, 0.5);
+        .glass-panel {
+            background: rgba(30, 41, 59, 0.7);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .gesture-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            grid-template-rows: repeat(3, 1fr);
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+        .grid-cell {
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: rgba(255, 255, 255, 0.2);
+            font-size: 0.75rem;
+        }
+        .grid-cell.active {
+            background: rgba(59, 130, 246, 0.2);
+            color: rgba(255, 255, 255, 0.8);
         }
     </style>
 </head>
-<body class="text-slate-200 min-h-screen p-4 flex flex-col items-center justify-center">
+<body class="min-h-screen p-4 md:p-8">
 
-    <div class="w-full max-w-6xl grid grid-cols-1 lg:grid-cols-12 gap-6">
+    <!-- Header Section -->
+    <header class="max-w-6xl mx-auto mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+            <h1 class="text-3xl font-bold tracking-tight text-white flex items-center gap-3">
+                <span class="p-2 bg-blue-600 rounded-lg"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-cpu"><rect width="16" height="16" x="4" y="4" rx="2"/><rect width="6" height="6" x="9" y="9" rx="1"/><path d="M15 2v2"/><path d="M15 20v2"/><path d="M2 15h2"/><path d="M2 9h2"/><path d="M20 15h2"/><path d="M20 9h2"/><path d="M9 2v2"/><path d="M9 20v2"/></svg></span>
+                Mini Robo Car <span class="text-blue-500 font-mono text-sm border border-blue-500/30 px-2 py-0.5 rounded ml-2">v1.0-PDR</span>
+            </h1>
+            <p class="text-slate-400 mt-1">ESP32-C3 Remote Operations Command Center</p>
+        </div>
         
-        <!-- Sidebar -->
-        <aside class="lg:col-span-3 flex flex-col gap-4">
-            <div class="bg-slate-900 border border-slate-800 p-6 rounded-[2.5rem] shadow-2xl">
-                <div class="flex items-center gap-2 mb-6">
-                    <div class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
-                    <h2 class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Control Interface</h2>
+        <div class="flex gap-3">
+            <div id="connection-status" class="flex items-center gap-2 px-3 py-1.5 bg-red-500/10 text-red-500 rounded-full border border-red-500/20 text-sm font-medium transition-all">
+                <div class="w-2 h-2 rounded-full bg-red-500 animate-pulse"></div>
+                Disconnected
+            </div>
+            <button id="estop-btn" class="bg-red-600 hover:bg-red-700 text-white px-6 py-1.5 rounded-full font-bold shadow-lg shadow-red-900/20 uppercase tracking-wider text-sm">
+                E-Stop
+            </button>
+        </div>
+    </header>
+
+    <main class="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-6">
+        
+        <!-- Left Column: Manual Controls & Lighting -->
+        <div class="lg:col-span-4 space-y-6">
+            <!-- Manual Control Module -->
+            <section class="glass-panel rounded-2xl p-6">
+                <h2 class="text-lg font-semibold mb-6 flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-blue-500"><circle cx="12" cy="12" r="10"/><path d="M12 8v8"/><path d="M8 12h8"/></svg>
+                    Manual Control
+                </h2>
+                
+                <div class="relative w-48 h-48 mx-auto mb-8">
+                    <!-- Directional D-Pad -->
+                    <button id="btn-F" class="control-btn absolute top-0 left-1/2 -translate-x-1/2 w-14 h-14 bg-slate-800 rounded-xl flex items-center justify-center hover:bg-slate-700" data-command="F">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m18 15-6-6-6 6"/></svg>
+                    </button>
+                    <button id="btn-L" class="control-btn absolute top-1/2 left-0 -translate-y-1/2 w-14 h-14 bg-slate-800 rounded-xl flex items-center justify-center hover:bg-slate-700" data-command="L">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+                    </button>
+                    <button id="btn-S" class="control-btn absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-16 h-16 bg-blue-600/20 border-2 border-blue-500 rounded-2xl flex items-center justify-center hover:bg-blue-600 hover:text-white" data-command="S">
+                        <div class="w-4 h-4 bg-current rounded-sm"></div>
+                    </button>
+                    <button id="btn-R" class="control-btn absolute top-1/2 right-0 -translate-y-1/2 w-14 h-14 bg-slate-800 rounded-xl flex items-center justify-center hover:bg-slate-700" data-command="R">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+                    </button>
+                    <button id="btn-B" class="control-btn absolute bottom-0 left-1/2 -translate-x-1/2 w-14 h-14 bg-slate-800 rounded-xl flex items-center justify-center hover:bg-slate-700" data-command="B">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+                    </button>
                 </div>
                 
-                <nav class="flex flex-col gap-2" id="mode-nav">
-                    <button onclick="setMode('manual')" id="tab-manual" class="mode-tab active w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl text-xs font-bold bg-slate-800/50 text-slate-400 transition-all">
-                        <i data-lucide="square" class="w-4 h-4"></i> Manual Drive
-                    </button>
-                    <button onclick="setMode('track')" id="tab-track" class="mode-tab w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl text-xs font-bold bg-slate-800/50 text-slate-400 transition-all">
-                        <i data-lucide="pen-tool" class="w-4 h-4"></i> Path Sketcher
-                    </button>
-                    <button onclick="setMode('gesture')" id="tab-gesture" class="mode-tab w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl text-xs font-bold bg-slate-800/50 text-slate-400 transition-all">
-                        <i data-lucide="scan" class="w-4 h-4"></i> Gesture Hub
-                    </button>
-                </nav>
+                <p class="text-center text-xs text-slate-500 italic">Keyboard Arrow Keys Enabled</p>
+            </section>
 
-                <div class="mt-8 pt-6 border-t border-slate-800 space-y-4">
-                    <div class="flex justify-between items-center">
-                        <span class="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Battery</span>
-                        <span class="text-xs font-mono text-green-400">88%</span>
-                    </div>
-                    <div class="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden">
-                        <div class="bg-green-500 h-full w-[88%]"></div>
+            <!-- Lighting Module -->
+            <section class="glass-panel rounded-2xl p-6">
+                <h2 class="text-lg font-semibold mb-4 flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-yellow-400"><path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5"/><path d="M9 18h6"/><path d="M10 22h4"/></svg>
+                    Lighting Control
+                </h2>
+                <div class="grid grid-cols-2 gap-4">
+                    <button id="headlight-toggle" class="flex flex-col items-center gap-2 p-4 bg-slate-800/50 rounded-xl border border-slate-700 hover:bg-slate-700 transition-colors">
+                        <div id="headlight-icon" class="text-slate-500"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg></div>
+                        <span class="text-xs font-semibold uppercase">Headlights</span>
+                    </button>
+                    <div class="flex flex-col items-center gap-2 p-4 bg-slate-800/20 rounded-xl border border-slate-700/50 opacity-60">
+                        <div id="taillight-icon" class="text-red-900"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="M2 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="M12 20v2"/><path d="m17.66 17.66 1.41 1.41"/><path d="M20 12h2"/><path d="m19.07 4.93-1.41 1.41"/></svg></div>
+                        <span class="text-xs font-semibold uppercase">Tail: Auto</span>
                     </div>
                 </div>
-            </div>
+            </section>
+        </div>
 
-            <div class="bg-slate-900/40 border border-slate-800 p-6 rounded-[2rem] hidden lg:block flex-1">
-                <h3 class="text-[10px] font-bold text-slate-600 uppercase mb-3">Live Logs</h3>
-                <div id="log-container" class="space-y-2 max-h-40 overflow-y-auto custom-scroll">
-                    <p class="text-[10px] text-slate-500 italic">Awaiting telemetry...</p>
-                </div>
-            </div>
-        </aside>
-
-        <!-- Main Viewport -->
-        <main class="lg:col-span-9 bg-slate-900 rounded-[3rem] p-6 md:p-10 border border-slate-800 shadow-2xl flex flex-col min-h-[600px] relative overflow-hidden">
+        <!-- Right Column: Interactive Modules -->
+        <div class="lg:col-span-8 space-y-6">
             
-            <!-- Header -->
-            <header class="flex justify-between items-center mb-10 w-full">
-                <div class="flex items-center gap-4">
-                    <div class="w-14 h-14 bg-blue-600/10 rounded-2xl flex items-center justify-center text-blue-400 border border-blue-500/10">
-                        <i data-lucide="zap" id="main-icon"></i>
-                    </div>
-                    <div>
-                        <h1 class="text-2xl font-black italic tracking-tighter text-white">CAR-OS PRO</h1>
-                        <p class="text-[10px] text-slate-500 font-bold tracking-widest uppercase" id="conn-status">Initializing Link...</p>
-                    </div>
-                </div>
-                
-                <div class="flex gap-2">
-                    <button onclick="toggleHeadlights()" id="light-btn" class="p-4 rounded-2xl bg-slate-800 text-slate-500 hover:bg-slate-700 transition-all">
-                        <i data-lucide="moon" id="light-icon"></i>
-                    </button>
-                    <button onclick="eStop()" class="p-4 rounded-2xl bg-red-500/10 text-red-500 border border-red-500/20 hover:bg-red-500/20">
-                        <i data-lucide="alert-triangle"></i>
-                    </button>
-                </div>
-            </header>
+            <!-- Module Tabs -->
+            <div class="flex gap-2 p-1 bg-slate-900 rounded-xl border border-slate-800">
+                <button onclick="switchTab('path')" id="tab-path" class="flex-1 py-2 rounded-lg font-medium text-sm transition-all bg-blue-600 text-white shadow-lg">Path Sketcher</button>
+                <button onclick="switchTab('gesture')" id="tab-gesture" class="flex-1 py-2 rounded-lg font-medium text-sm transition-all text-slate-400 hover:text-white">Gesture Hub</button>
+                <button onclick="switchTab('telemetry')" id="tab-telemetry" class="flex-1 py-2 rounded-lg font-medium text-sm transition-all text-slate-400 hover:text-white">Live Logs</button>
+            </div>
 
-            <!-- Mode: Manual -->
-            <div id="view-manual" class="mode-view flex-1 flex flex-col items-center justify-center">
-                <div class="grid grid-cols-3 gap-6 w-full max-w-xs aspect-square">
-                    <div class="invisible"></div>
-                    <button onmousedown="send('F')" onmouseup="send('S')" ontouchstart="send('F')" ontouchend="send('S')" id="key-F" class="ctrl-btn bg-slate-800 rounded-[2.5rem] flex items-center justify-center shadow-xl border border-slate-700/50">
-                        <i data-lucide="arrow-up" class="w-10 h-10"></i>
-                    </button>
-                    <div class="invisible"></div>
-                    
-                    <button onmousedown="send('L')" onmouseup="send('S')" ontouchstart="send('L')" ontouchend="send('S')" id="key-L" class="ctrl-btn bg-slate-800 rounded-[2.5rem] flex items-center justify-center shadow-xl border border-slate-700/50">
-                        <i data-lucide="arrow-left" class="w-10 h-10"></i>
-                    </button>
-                    <div class="bg-slate-950/50 rounded-3xl flex items-center justify-center text-slate-700 font-bold text-[10px] uppercase tracking-widest border border-slate-800">
-                        Manual
+            <!-- Path Sketcher Module -->
+            <div id="content-path" class="glass-panel rounded-2xl p-6 min-h-[400px] flex flex-col">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-lg font-semibold">Path Sketcher</h2>
+                    <div class="flex gap-2">
+                        <button id="clear-canvas" class="text-xs px-3 py-1 bg-slate-800 rounded hover:bg-slate-700">Clear</button>
+                        <button id="execute-path" class="text-xs px-3 py-1 bg-green-600 rounded hover:bg-green-700 text-white font-bold">Execute Path</button>
                     </div>
-                    <button onmousedown="send('R')" onmouseup="send('S')" ontouchstart="send('R')" ontouchend="send('S')" id="key-R" class="ctrl-btn bg-slate-800 rounded-[2.5rem] flex items-center justify-center shadow-xl border border-slate-700/50">
-                        <i data-lucide="arrow-right" class="w-10 h-10"></i>
-                    </button>
-                    
-                    <div class="invisible"></div>
-                    <button onmousedown="send('B')" onmouseup="send('S')" ontouchstart="send('B')" ontouchend="send('S')" id="key-B" class="ctrl-btn bg-slate-800 rounded-[2.5rem] flex items-center justify-center shadow-xl border border-slate-700/50">
-                        <i data-lucide="arrow-down" class="w-10 h-10"></i>
-                    </button>
-                    <div class="invisible"></div>
+                </div>
+                <div class="relative flex-1 bg-slate-950 rounded-xl border border-slate-800 overflow-hidden cursor-crosshair">
+                    <canvas id="pathCanvas" class="w-full h-full"></canvas>
+                    <div class="absolute bottom-4 left-4 text-[10px] text-slate-600 uppercase tracking-widest pointer-events-none">Drawing Area: 1 unit = 100ms motor pulse</div>
                 </div>
             </div>
 
-            <!-- Mode: Track -->
-            <div id="view-track" class="mode-view hidden flex-1 flex flex-col items-center w-full">
-                <div class="relative w-full aspect-video md:aspect-[21/9] bg-slate-950 rounded-[2rem] border-2 border-slate-800 overflow-hidden group">
-                    <canvas id="pad" width="1000" height="450" class="w-full h-full cursor-crosshair"></canvas>
-                    <div id="pad-hint" class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none opacity-20">
-                        <i data-lucide="pen-tool" class="w-16 h-16 mb-2"></i>
-                        <p class="text-sm font-black uppercase tracking-widest">Sketch Your Path</p>
-                    </div>
-                    <div id="play-bar" class="absolute bottom-0 left-0 h-1.5 bg-blue-500 w-0 transition-all duration-300"></div>
+            <!-- Gesture Hub Module -->
+            <div id="content-gesture" class="hidden glass-panel rounded-2xl p-6 min-h-[400px] flex flex-col">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-lg font-semibold">Gesture Hub</h2>
+                    <button id="start-camera" class="text-xs px-4 py-1.5 bg-blue-600 rounded hover:bg-blue-700 text-white">Initialize Vision</button>
                 </div>
-                <div class="flex gap-4 mt-8 w-full max-w-sm">
-                    <button onclick="playSketch()" id="run-btn" class="flex-1 py-5 rounded-2xl bg-green-600 font-black uppercase tracking-wider flex items-center justify-center gap-3 hover:bg-green-500 transition-all shadow-lg shadow-green-500/20">
-                        <i data-lucide="play" class="w-5 h-5 fill-current"></i> Execute
-                    </button>
-                    <button onclick="clearSketch()" class="p-5 rounded-2xl bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-white transition-all">
-                        <i data-lucide="trash-2" class="w-6 h-6"></i>
-                    </button>
+                <div class="relative flex-1 bg-black rounded-xl border border-slate-800 overflow-hidden group">
+                    <video id="webcam" class="w-full h-full object-cover scale-x-[-1]" autoplay playsinline></video>
+                    <div class="gesture-grid">
+                        <div class="grid-cell" id="grid-0">TL</div>
+                        <div class="grid-cell" id="grid-1">FORWARD</div>
+                        <div class="grid-cell" id="grid-2">TR</div>
+                        <div class="grid-cell" id="grid-3">LEFT</div>
+                        <div class="grid-cell" id="grid-4">STOP</div>
+                        <div class="grid-cell" id="grid-5">RIGHT</div>
+                        <div class="grid-cell" id="grid-6">BL</div>
+                        <div class="grid-cell" id="grid-7">BACK</div>
+                        <div class="grid-cell" id="grid-8">BR</div>
+                    </div>
+                    <div id="pointer" class="absolute w-6 h-6 border-2 border-yellow-400 rounded-full shadow-[0_0_10px_rgba(250,204,21,0.5)] pointer-events-none -translate-x-1/2 -translate-y-1/2 transition-all duration-75"></div>
+                    <div id="vision-overlay" class="absolute inset-0 flex items-center justify-center bg-slate-950/80 text-slate-400 text-sm">
+                        Click "Initialize Vision" to start
+                    </div>
+                </div>
+                <p class="mt-3 text-xs text-slate-500">Move your head or cursor in the 3x3 grid to control the car.</p>
+            </div>
+
+            <!-- Telemetry Module -->
+            <div id="content-telemetry" class="hidden glass-panel rounded-2xl p-6 min-h-[400px] flex flex-col">
+                <h2 class="text-lg font-semibold mb-4">System Telemetry</h2>
+                <div class="flex-1 bg-slate-950 rounded-xl border border-slate-800 p-4 font-mono text-sm overflow-y-auto" id="log-container">
+                    <div class="text-blue-400">[SYSTEM] Initialization complete.</div>
+                    <div class="text-slate-500">[AUTH] Connecting to Firebase project: rc-car-ace9d...</div>
                 </div>
             </div>
 
-            <!-- Mode: Gesture -->
-            <div id="view-gesture" class="mode-view hidden flex-1 flex flex-col items-center w-full">
-                <div id="sensor-area" class="relative w-full aspect-video bg-black rounded-[2rem] border border-slate-800 overflow-hidden touch-none">
-                    <video id="cam" autoplay playsinline muted class="w-full h-full object-cover grayscale opacity-30 scale-x-[-1]"></video>
-                    
-                    <div class="absolute inset-0 grid grid-cols-3 grid-rows-3 pointer-events-none" id="grid-overlay">
-                        <!-- Detection Zones -->
-                        <div class="border border-white/5 flex items-center justify-center"><i data-lucide="arrow-up" class="opacity-5 z-F"></i></div>
-                        <div class="border border-white/5 flex items-center justify-center bg-blue-500/0 transition-colors z-F-bg"><i data-lucide="arrow-up" class="opacity-5 z-F w-12 h-12"></i></div>
-                        <div class="border border-white/5 flex items-center justify-center"><i data-lucide="arrow-up" class="opacity-5 z-F"></i></div>
-                        
-                        <div class="border border-white/5 flex items-center justify-center bg-blue-500/0 transition-colors z-L-bg"><i data-lucide="arrow-left" class="opacity-5 z-L w-12 h-12"></i></div>
-                        <div class="border border-white/5 flex items-center justify-center"><i data-lucide="hand" class="opacity-10 z-S w-16 h-16"></i></div>
-                        <div class="border border-white/5 flex items-center justify-center bg-blue-500/0 transition-colors z-R-bg"><i data-lucide="arrow-right" class="opacity-5 z-R w-12 h-12"></i></div>
-                        
-                        <div class="border border-white/5 flex items-center justify-center"><i data-lucide="arrow-down" class="opacity-5 z-B"></i></div>
-                        <div class="border border-white/5 flex items-center justify-center bg-red-500/0 transition-colors z-B-bg"><i data-lucide="arrow-down" class="opacity-5 z-B w-12 h-12"></i></div>
-                        <div class="border border-white/5 flex items-center justify-center"><i data-lucide="arrow-down" class="opacity-5 z-B"></i></div>
-                    </div>
+        </div>
+    </main>
 
-                    <div class="absolute top-6 left-6 bg-black/60 backdrop-blur-md px-4 py-2 rounded-full text-[10px] font-black border border-white/10 flex items-center gap-2">
-                        <div class="w-2 h-2 rounded-full bg-red-500 animate-pulse"></div> SIGNAL: SENSOR_READY
-                    </div>
-                </div>
-                <p class="mt-6 text-xs text-slate-500 italic font-medium tracking-wide">Hover your cursor or hand over zones to steer</p>
-            </div>
+    <footer class="max-w-6xl mx-auto mt-12 pt-8 border-t border-slate-800/50 flex flex-col md:flex-row justify-between items-center gap-4 text-slate-600 text-sm">
+        <div>&copy; 2024 RoboCar PDR Framework</div>
+        <div class="flex gap-6">
+            <span class="flex items-center gap-2"><div class="w-2 h-2 rounded-full bg-slate-700"></div> Latency: <span id="ping-val" class="text-slate-400">--ms</span></span>
+            <span class="flex items-center gap-2"><div class="w-2 h-2 rounded-full bg-slate-700"></div> Battery: <span class="text-slate-400">~3.8V</span></span>
+        </div>
+    </footer>
 
-            <!-- Global Footer -->
-            <footer class="w-full mt-auto pt-10 border-t border-slate-800/50">
-                <div class="flex justify-between text-[10px] font-black text-slate-600 uppercase tracking-widest mb-4">
-                    Motor Power Output <span class="text-blue-400 text-sm font-mono" id="val-speed">75%</span>
-                </div>
-                <input type="range" id="slider-speed" min="20" max="100" step="5" value="75" class="w-full h-2 rounded-full cursor-pointer">
-            </footer>
-        </main>
-    </div>
-
-    <!-- Firebase SDK Implementation -->
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
-        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js";
-        import { getDatabase, ref, set } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-database.js";
-
+    <script>
+        /**
+         * FIREBASE CONFIGURATION & INITIALIZATION
+         */
         const firebaseConfig = {
             apiKey: "AIzaSyCRkRxDxhIgZYMZm4GqOBlqKz4SrVcY_JM",
             authDomain: "rc-car-ace9d.firebaseapp.com",
@@ -218,245 +221,307 @@
             projectId: "rc-car-ace9d",
             storageBucket: "rc-car-ace9d.firebasestorage.app",
             messagingSenderId: "659429363897",
-            appId: "1:659429363897:web:00814c87b25c2227f64b68"
+            appId: "1:659429363897:web:00814c87b25c2227f64b68",
+            measurementId: "G-N1RK829K67"
         };
 
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-        const db = getDatabase(app);
-        const appId = 'rc-car-ace9d';
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+        const cmdRef = db.ref('car_control');
 
-        // State Management
-        let user = null;
-        let mode = 'manual';
-        let action = 'S';
-        let lightState = false;
-        let speed = 75;
-        let runningPath = false;
-        let stream = null;
+        // State variables
+        let lastCommand = 'S';
+        let headlightState = false;
+        let isConnected = false;
 
-        // Initialize Icons
-        lucide.createIcons();
+        /**
+         * TELEMETRY HELPERS
+         */
+        const logContainer = document.getElementById('log-container');
+        function addLog(message, type = 'info') {
+            const entry = document.createElement('div');
+            const time = new Date().toLocaleTimeString();
+            entry.className = type === 'error' ? 'text-red-400' : (type === 'success' ? 'text-green-400' : 'text-slate-400');
+            entry.innerHTML = `<span class="text-slate-600">[${time}]</span> ${message}`;
+            logContainer.prepend(entry);
+        }
 
-        // Auth Loop
-        signInAnonymously(auth).catch(e => console.error("Auth Fail", e));
-        onAuthStateChanged(auth, u => {
-            user = u;
-            if (u) {
-                document.getElementById('conn-status').innerText = `Linked • ${u.uid.slice(0, 8)}`;
-                addLog("System Online");
+        // Connection Check
+        const connectedRef = db.ref(".info/connected");
+        connectedRef.on("value", (snap) => {
+            const statusEl = document.getElementById('connection-status');
+            if (snap.val() === true) {
+                isConnected = true;
+                statusEl.innerHTML = '<div class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div> Connected';
+                statusEl.classList.remove('bg-red-500/10', 'text-red-500', 'border-red-500/20');
+                statusEl.classList.add('bg-green-500/10', 'text-green-500', 'border-green-500/20');
+                addLog('Firebase Realtime Database Connected', 'success');
+            } else {
+                isConnected = false;
+                statusEl.innerHTML = '<div class="w-2 h-2 rounded-full bg-red-500 animate-pulse"></div> Disconnected';
+                statusEl.classList.remove('bg-green-500/10', 'text-green-500', 'border-green-500/20');
+                statusEl.classList.add('bg-red-500/10', 'text-red-500', 'border-red-500/20');
+                addLog('Connection to Firebase lost', 'error');
             }
         });
 
-        // --- Core Communication ---
-        window.send = async (cmd) => {
-            if (!user || (runningPath && cmd !== 'S')) return;
+        /**
+         * CORE COMMAND LOGIC
+         */
+        function sendCommand(action) {
+            if (action === lastCommand) return;
             
-            action = cmd;
-            const path = `artifacts/${appId}/public/data/commands/current`;
-            
-            // UI Feedback for manual buttons
-            document.querySelectorAll('.ctrl-btn').forEach(b => b.classList.remove('btn-active'));
-            const btn = document.getElementById(`key-${cmd}`);
-            if (btn) btn.classList.add('btn-active');
+            const start = Date.now();
+            cmdRef.set({
+                action: action,
+                headlights: headlightState,
+                timestamp: firebase.database.ServerValue.TIMESTAMP
+            }).then(() => {
+                const latency = Date.now() - start;
+                document.getElementById('ping-val').innerText = latency + 'ms';
+                lastCommand = action;
+                updateButtonStyles(action);
+            }).catch(err => {
+                addLog('Command Failed: ' + err.message, 'error');
+            });
+        }
 
-            try {
-                await set(ref(db, path), {
-                    action: cmd,
-                    lights: lightState,
-                    speed: speed,
-                    timestamp: Date.now(),
-                    sender: user.uid
-                });
-            } catch (err) { console.error(err); }
-        };
-
-        window.toggleHeadlights = () => {
-            lightState = !lightState;
-            const btn = document.getElementById('light-btn');
-            const icon = document.getElementById('light-icon');
+        function updateButtonStyles(action) {
+            // Reset all
+            document.querySelectorAll('.control-btn').forEach(b => b.classList.remove('active-direction'));
+            // Highlight active
+            const activeBtn = document.getElementById('btn-' + action);
+            if (activeBtn) activeBtn.classList.add('active-direction');
             
-            if (lightState) {
-                btn.className = "p-4 rounded-2xl bg-yellow-500/20 text-yellow-500 shadow-lg shadow-yellow-500/10 border border-yellow-500/20";
-                icon.setAttribute('data-lucide', 'sun');
-                addLog("Headlights ON");
+            if (action !== 'S') {
+                addLog(`Action updated to: ${action}`);
+            }
+        }
+
+        // Lighting Toggle
+        document.getElementById('headlight-toggle').addEventListener('click', () => {
+            headlightState = !headlightState;
+            const icon = document.getElementById('headlight-icon');
+            const btn = document.getElementById('headlight-toggle');
+            
+            if (headlightState) {
+                icon.classList.remove('text-slate-500');
+                icon.classList.add('text-yellow-400');
+                btn.classList.add('border-yellow-500/50', 'bg-yellow-500/10');
+                addLog('Headlights ENABLED');
             } else {
-                btn.className = "p-4 rounded-2xl bg-slate-800 text-slate-500";
-                icon.setAttribute('data-lucide', 'moon');
-                addLog("Headlights OFF");
+                icon.classList.add('text-slate-500');
+                icon.classList.remove('text-yellow-400');
+                btn.classList.remove('border-yellow-500/50', 'bg-yellow-500/10');
+                addLog('Headlights DISABLED');
             }
-            lucide.createIcons();
-            window.send(action);
-        };
-
-        window.eStop = () => {
-            runningPath = false;
-            window.send('S');
-            addLog("EMERGENCY STOP");
-        };
-
-        function addLog(msg) {
-            const container = document.getElementById('log-container');
-            const p = document.createElement('p');
-            p.className = "text-[10px] font-mono border-b border-slate-800 pb-1 flex justify-between";
-            p.innerHTML = `<span class="text-slate-500">${new Date().toLocaleTimeString()}</span> <span class="text-slate-300">${msg}</span>`;
-            container.prepend(p);
-            if(container.children.length > 8) container.lastElementChild.remove();
-        }
-
-        // --- View Controller ---
-        window.setMode = (m) => {
-            mode = m;
-            document.querySelectorAll('.mode-tab').forEach(t => t.classList.remove('active'));
-            document.getElementById(`tab-${m}`).classList.add('active');
             
-            document.querySelectorAll('.mode-view').forEach(v => v.classList.add('hidden'));
-            document.getElementById(`view-${m}`).classList.remove('hidden');
-
-            const icons = { manual: 'square', track: 'pen-tool', gesture: 'camera' };
-            document.getElementById('main-icon').setAttribute('data-lucide', icons[m]);
-            lucide.createIcons();
-
-            addLog(`Mode: ${m.toUpperCase()}`);
-
-            if (m === 'gesture') initCam();
-            else stopCam();
-        };
-
-        // --- Track Pad Functionality ---
-        const canvas = document.getElementById('pad');
-        const ctx = canvas.getContext('2d');
-        let isDrawing = false;
-        let points = [];
-
-        canvas.addEventListener('mousedown', start);
-        canvas.addEventListener('mousemove', move);
-        canvas.addEventListener('mouseup', end);
-        canvas.addEventListener('touchstart', e => { e.preventDefault(); start(e.touches[0]); });
-        canvas.addEventListener('touchmove', e => { e.preventDefault(); move(e.touches[0]); });
-        canvas.addEventListener('touchend', end);
-
-        function start(e) {
-            isDrawing = true;
-            points = [];
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            ctx.beginPath();
-            ctx.strokeStyle = '#3b82f6';
-            ctx.lineWidth = 6;
-            ctx.lineCap = 'round';
-            document.getElementById('pad-hint').classList.add('hidden');
-        }
-
-        function move(e) {
-            if (!isDrawing) return;
-            const rect = canvas.getBoundingClientRect();
-            const x = (e.clientX - rect.left) * (canvas.width / rect.width);
-            const y = (e.clientY - rect.top) * (canvas.height / rect.height);
-            ctx.lineTo(x, y);
-            ctx.stroke();
-            points.push({x, y});
-        }
-
-        function end() { isDrawing = false; }
-
-        window.clearSketch = () => {
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            points = [];
-            document.getElementById('pad-hint').classList.remove('hidden');
-            document.getElementById('play-bar').style.width = '0%';
-        };
-
-        window.playSketch = async () => {
-            if (points.length < 15 || runningPath) return;
-            runningPath = true;
-            addLog("Executing Path...");
-            
-            const cmds = [];
-            for(let i = 10; i < points.length; i += 10) {
-                const pA = points[i-10], pB = points[i];
-                const angle = Math.atan2(pB.y - pA.y, pB.x - pA.x) * 180 / Math.PI;
-                let c = 'F';
-                if (angle > -135 && angle < -45) c = 'F';
-                else if (angle > 45 && angle < 135) c = 'B';
-                else if (angle >= -45 && angle <= 45) c = 'R';
-                else c = 'L';
-                cmds.push(c);
-            }
-
-            for(let i = 0; i < cmds.length; i++) {
-                if (!runningPath) break;
-                document.getElementById('play-bar').style.width = `${(i/cmds.length)*100}%`;
-                window.send(cmds[i]);
-                await new Promise(r => setTimeout(r, 250));
-            }
-            window.send('S');
-            runningPath = false;
-            addLog("Path Finished");
-        };
-
-        // --- Gesture Sensor Functionality ---
-        const video = document.getElementById('cam');
-        async function initCam() {
-            try {
-                stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } });
-                video.srcObject = stream;
-            } catch (e) { console.error(e); window.setMode('manual'); }
-        }
-
-        function stopCam() {
-            if (stream) stream.getTracks().forEach(t => t.stop());
-            stream = null;
-        }
-
-        const area = document.getElementById('sensor-area');
-        area.addEventListener('mousemove', e => {
-            if (mode !== 'gesture') return;
-            const rect = area.getBoundingClientRect();
-            const x = (e.clientX - rect.left) / rect.width;
-            const y = (e.clientY - rect.top) / rect.height;
-            
-            let cmd = 'S';
-            if (y < 0.33) cmd = 'F';
-            else if (y > 0.66) cmd = 'B';
-            else if (x < 0.33) cmd = 'L';
-            else if (x > 0.66) cmd = 'R';
-            
-            // Overlay logic
-            document.querySelectorAll('#grid-overlay i').forEach(i => i.classList.remove('opacity-100', 'text-blue-400', 'text-red-400', 'animate-bounce'));
-            document.querySelectorAll('[class*="-bg"]').forEach(b => b.classList.remove('bg-blue-500/20', 'bg-red-500/20'));
-
-            if (cmd !== 'S') {
-                const icons = document.querySelectorAll(`.z-${cmd}`);
-                icons.forEach(i => {
-                    i.classList.add('opacity-100', cmd === 'B' ? 'text-red-400' : 'text-blue-400', 'animate-bounce');
-                });
-                const bg = document.querySelector(`.z-${cmd}-bg`);
-                if(bg) bg.classList.add(cmd === 'B' ? 'bg-red-500/20' : 'bg-blue-500/20');
-            } else {
-                document.querySelector('.z-S').classList.add('opacity-100', 'text-white');
-            }
-
-            window.send(cmd);
+            // Force update with current action
+            const currentAction = lastCommand;
+            lastCommand = null; // force update
+            sendCommand(currentAction);
         });
 
-        area.addEventListener('mouseleave', () => window.send('S'));
+        // E-Stop
+        document.getElementById('estop-btn').addEventListener('click', () => {
+            sendCommand('S');
+            addLog('EMERGENCY STOP TRIGGERED', 'error');
+        });
 
-        // --- Hardware Config Listeners ---
-        document.getElementById('slider-speed').addEventListener('input', (e) => {
-            speed = e.target.value;
-            document.getElementById('val-speed').innerText = `${speed}%`;
-            window.send(action);
+        /**
+         * MANUAL CONTROLS
+         */
+        document.querySelectorAll('.control-btn').forEach(btn => {
+            const cmd = btn.getAttribute('data-command');
+            btn.addEventListener('mousedown', () => sendCommand(cmd));
+            btn.addEventListener('mouseup', () => sendCommand('S'));
+            btn.addEventListener('touchstart', (e) => { e.preventDefault(); sendCommand(cmd); });
+            btn.addEventListener('touchend', () => sendCommand('S'));
         });
 
         window.addEventListener('keydown', (e) => {
             if (e.repeat) return;
-            const keys = { ArrowUp: 'F', ArrowDown: 'B', ArrowLeft: 'L', ArrowRight: 'R', ' ': 'S' };
-            if (keys[e.key]) window.send(keys[e.key]);
+            switch(e.key) {
+                case 'ArrowUp': sendCommand('F'); break;
+                case 'ArrowDown': sendCommand('B'); break;
+                case 'ArrowLeft': sendCommand('L'); break;
+                case 'ArrowRight': sendCommand('R'); break;
+                case ' ': sendCommand('S'); break;
+            }
         });
 
         window.addEventListener('keyup', (e) => {
-            if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) window.send('S');
+            if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
+                sendCommand('S');
+            }
         });
+
+        /**
+         * PATH SKETCHER LOGIC
+         */
+        const canvas = document.getElementById('pathCanvas');
+        const ctx = canvas.getContext('2d');
+        let drawing = false;
+        let points = [];
+
+        function resizeCanvas() {
+            canvas.width = canvas.parentElement.clientWidth;
+            canvas.height = canvas.parentElement.clientHeight;
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        canvas.addEventListener('mousedown', startDrawing);
+        canvas.addEventListener('mousemove', draw);
+        window.addEventListener('mouseup', stopDrawing);
+        canvas.addEventListener('touchstart', (e) => { e.preventDefault(); startDrawing(e.touches[0]); });
+        canvas.addEventListener('touchmove', (e) => { e.preventDefault(); draw(e.touches[0]); });
+
+        function startDrawing(e) {
+            drawing = true;
+            points = [];
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.beginPath();
+            const { x, y } = getMousePos(e);
+            ctx.moveTo(x, y);
+            points.push({ x, y, t: Date.now() });
+        }
+
+        function draw(e) {
+            if (!drawing) return;
+            const { x, y } = getMousePos(e);
+            ctx.lineTo(x, y);
+            ctx.strokeStyle = '#3b82f6';
+            ctx.lineWidth = 4;
+            ctx.lineCap = 'round';
+            ctx.stroke();
+            points.push({ x, y, t: Date.now() });
+        }
+
+        function stopDrawing() {
+            drawing = false;
+        }
+
+        function getMousePos(e) {
+            const rect = canvas.getBoundingClientRect();
+            return {
+                x: (e.clientX || e.pageX) - rect.left,
+                y: (e.clientY || e.pageY) - rect.top
+            };
+        }
+
+        document.getElementById('clear-canvas').addEventListener('click', () => {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            points = [];
+        });
+
+        document.getElementById('execute-path').addEventListener('click', async () => {
+            if (points.length < 2) return;
+            addLog("Executing Path Sketch...", "success");
+            
+            // Convert drawing to simplified vector commands
+            for (let i = 1; i < points.length; i += 10) {
+                const p1 = points[i-1];
+                const p2 = points[i];
+                if (!p2) break;
+
+                const dx = p2.x - p1.x;
+                const dy = p2.y - p1.y;
+                const duration = 150; // Simple constant pulse for PDR
+
+                let action = 'S';
+                if (Math.abs(dy) > Math.abs(dx)) {
+                    action = dy < 0 ? 'F' : 'B';
+                } else {
+                    action = dx > 0 ? 'R' : 'L';
+                }
+
+                sendCommand(action);
+                await new Promise(r => setTimeout(r, duration));
+            }
+            sendCommand('S');
+            addLog("Path sequence finished.");
+        });
+
+        /**
+         * GESTURE HUB LOGIC
+         */
+        const video = document.getElementById('webcam');
+        const pointer = document.getElementById('pointer');
+        const gridCells = document.querySelectorAll('.grid-cell');
+        let visionActive = false;
+
+        document.getElementById('start-camera').addEventListener('click', async () => {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                video.srcObject = stream;
+                document.getElementById('vision-overlay').classList.add('hidden');
+                visionActive = true;
+                addLog('Computer Vision Initialized');
+                startGestureLoop();
+            } catch (err) {
+                addLog('Camera Error: ' + err.message, 'error');
+            }
+        });
+
+        function startGestureLoop() {
+            // Simulating cursor tracking as gesture proxy for this demo
+            // In a production environment, this would use MediaPipe Hands
+            video.addEventListener('mousemove', (e) => {
+                if (!visionActive) return;
+                const rect = video.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const y = e.clientY - rect.top;
+                
+                pointer.style.left = x + 'px';
+                pointer.style.top = y + 'px';
+
+                // Map to 3x3 Grid
+                const col = Math.floor((x / rect.width) * 3);
+                const row = Math.floor((y / rect.height) * 3);
+                const index = Math.min(Math.max(row * 3 + col, 0), 8);
+
+                // Highlight active cell
+                gridCells.forEach(c => c.classList.remove('active'));
+                const targetCell = document.getElementById('grid-' + index);
+                if (targetCell) targetCell.classList.add('active');
+
+                // Map index to command
+                // 0:TL 1:F 2:TR
+                // 3:L  4:S 5:R
+                // 6:BL 7:B 8:BR
+                const mapping = ['L', 'F', 'R', 'L', 'S', 'R', 'B', 'B', 'B'];
+                sendCommand(mapping[index]);
+            });
+
+            video.addEventListener('mouseleave', () => {
+                sendCommand('S');
+                gridCells.forEach(c => c.classList.remove('active'));
+            });
+        }
+
+        /**
+         * UI TABS
+         */
+        function switchTab(tab) {
+            const tabs = ['path', 'gesture', 'telemetry'];
+            tabs.forEach(t => {
+                const btn = document.getElementById('tab-' + t);
+                const content = document.getElementById('content-' + t);
+                if (t === tab) {
+                    btn.classList.add('bg-blue-600', 'text-white', 'shadow-lg');
+                    btn.classList.remove('text-slate-400');
+                    content.classList.remove('hidden');
+                } else {
+                    btn.classList.remove('bg-blue-600', 'text-white', 'shadow-lg');
+                    btn.classList.add('text-slate-400');
+                    content.classList.add('hidden');
+                }
+            });
+            
+            if (tab === 'path') resizeCanvas();
+        }
 
     </script>
 </body>
