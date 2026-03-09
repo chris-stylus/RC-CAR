@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>CAR-OS PRO | Wireless Dashboard</title>
+    
+    <!-- External Assets -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800;900&display=swap');
+        
+        body { 
+            font-family: 'Inter', sans-serif; 
+            -webkit-tap-highlight-color: transparent; 
+            background-color: #020617;
+        }
+
+        /* Custom scrollbar for logs */
+        .custom-scroll::-webkit-scrollbar { width: 4px; }
+        .custom-scroll::-webkit-scrollbar-track { background: transparent; }
+        .custom-scroll::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 10px; }
+
+        .btn-active { 
+            background-color: #2563eb !important; 
+            box-shadow: 0 0 20px rgba(37, 99, 235, 0.4);
+            transform: scale(0.95);
+        }
+
+        .mode-tab.active {
+            background-color: #2563eb;
+            color: white;
+            box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+        }
+
+        canvas { touch-action: none; }
+        
+        input[type=range] {
+            -webkit-appearance: none;
+            background: #1e293b;
+            border-radius: 999px;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 18px;
+            width: 18px;
+            border-radius: 50%;
+            background: #3b82f6;
+            cursor: pointer;
+            box-shadow: 0 0 10px rgba(59, 130, 246, 0.5);
+        }
+    </style>
+</head>
+<body class="text-slate-200 min-h-screen p-4 flex flex-col items-center justify-center">
+
+    <div class="w-full max-w-6xl grid grid-cols-1 lg:grid-cols-12 gap-6">
+        
+        <!-- Sidebar -->
+        <aside class="lg:col-span-3 flex flex-col gap-4">
+            <div class="bg-slate-900 border border-slate-800 p-6 rounded-[2.5rem] shadow-2xl">
+                <div class="flex items-center gap-2 mb-6">
+                    <div class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
+                    <h2 class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Control Interface</h2>
+                </div>
+                
+                <nav class="flex flex-col gap-2" id="mode-nav">
+                    <button onclick="setMode('manual')" id="tab-manual" class="mode-tab active w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl text-xs font-bold bg-slate-800/50 text-slate-400 transition-all">
+                        <i data-lucide="square" class="w-4 h-4"></i> Manual Drive
+                    </button>
+                    <button onclick="setMode('track')" id="tab-track" class="mode-tab w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl text-xs font-bold bg-slate-800/50 text-slate-400 transition-all">
+                        <i data-lucide="pen-tool" class="w-4 h-4"></i> Path Sketcher
+                    </button>
+                    <button onclick="setMode('gesture')" id="tab-gesture" class="mode-tab w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl text-xs font-bold bg-slate-800/50 text-slate-400 transition-all">
+                        <i data-lucide="scan" class="w-4 h-4"></i> Gesture Hub
+                    </button>
+                </nav>
+
+                <div class="mt-8 pt-6 border-t border-slate-800 space-y-4">
+                    <div class="flex justify-between items-center">
+                        <span class="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Battery</span>
+                        <span class="text-xs font-mono text-green-400">88%</span>
+                    </div>
+                    <div class="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden">
+                        <div class="bg-green-500 h-full w-[88%]"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-slate-900/40 border border-slate-800 p-6 rounded-[2rem] hidden lg:block flex-1">
+                <h3 class="text-[10px] font-bold text-slate-600 uppercase mb-3">Live Logs</h3>
+                <div id="log-container" class="space-y-2 max-h-40 overflow-y-auto custom-scroll">
+                    <p class="text-[10px] text-slate-500 italic">Awaiting telemetry...</p>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Viewport -->
+        <main class="lg:col-span-9 bg-slate-900 rounded-[3rem] p-6 md:p-10 border border-slate-800 shadow-2xl flex flex-col min-h-[600px] relative overflow-hidden">
+            
+            <!-- Header -->
+            <header class="flex justify-between items-center mb-10 w-full">
+                <div class="flex items-center gap-4">
+                    <div class="w-14 h-14 bg-blue-600/10 rounded-2xl flex items-center justify-center text-blue-400 border border-blue-500/10">
+                        <i data-lucide="zap" id="main-icon"></i>
+                    </div>
+                    <div>
+                        <h1 class="text-2xl font-black italic tracking-tighter text-white">CAR-OS PRO</h1>
+                        <p class="text-[10px] text-slate-500 font-bold tracking-widest uppercase" id="conn-status">Initializing Link...</p>
+                    </div>
+                </div>
+                
+                <div class="flex gap-2">
+                    <button onclick="toggleHeadlights()" id="light-btn" class="p-4 rounded-2xl bg-slate-800 text-slate-500 hover:bg-slate-700 transition-all">
+                        <i data-lucide="moon" id="light-icon"></i>
+                    </button>
+                    <button onclick="eStop()" class="p-4 rounded-2xl bg-red-500/10 text-red-500 border border-red-500/20 hover:bg-red-500/20">
+                        <i data-lucide="alert-triangle"></i>
+                    </button>
+                </div>
+            </header>
+
+            <!-- Mode: Manual -->
+            <div id="view-manual" class="mode-view flex-1 flex flex-col items-center justify-center">
+                <div class="grid grid-cols-3 gap-6 w-full max-w-xs aspect-square">
+                    <div class="invisible"></div>
+                    <button onmousedown="send('F')" onmouseup="send('S')" ontouchstart="send('F')" ontouchend="send('S')" id="key-F" class="ctrl-btn bg-slate-800 rounded-[2.5rem] flex items-center justify-center shadow-xl border border-slate-700/50">
+                        <i data-lucide="arrow-up" class="w-10 h-10"></i>
+                    </button>
+                    <div class="invisible"></div>
+                    
+                    <button onmousedown="send('L')" onmouseup="send('S')" ontouchstart="send('L')" ontouchend="send('S')" id="key-L" class="ctrl-btn bg-slate-800 rounded-[2.5rem] flex items-center justify-center shadow-xl border border-slate-700/50">
+                        <i data-lucide="arrow-left" class="w-10 h-10"></i>
+                    </button>
+                    <div class="bg-slate-950/50 rounded-3xl flex items-center justify-center text-slate-700 font-bold text-[10px] uppercase tracking-widest border border-slate-800">
+                        Manual
+                    </div>
+                    <button onmousedown="send('R')" onmouseup="send('S')" ontouchstart="send('R')" ontouchend="send('S')" id="key-R" class="ctrl-btn bg-slate-800 rounded-[2.5rem] flex items-center justify-center shadow-xl border border-slate-700/50">
+                        <i data-lucide="arrow-right" class="w-10 h-10"></i>
+                    </button>
+                    
+                    <div class="invisible"></div>
+                    <button onmousedown="send('B')" onmouseup="send('S')" ontouchstart="send('B')" ontouchend="send('S')" id="key-B" class="ctrl-btn bg-slate-800 rounded-[2.5rem] flex items-center justify-center shadow-xl border border-slate-700/50">
+                        <i data-lucide="arrow-down" class="w-10 h-10"></i>
+                    </button>
+                    <div class="invisible"></div>
+                </div>
+            </div>
+
+            <!-- Mode: Track -->
+            <div id="view-track" class="mode-view hidden flex-1 flex flex-col items-center w-full">
+                <div class="relative w-full aspect-video md:aspect-[21/9] bg-slate-950 rounded-[2rem] border-2 border-slate-800 overflow-hidden group">
+                    <canvas id="pad" width="1000" height="450" class="w-full h-full cursor-crosshair"></canvas>
+                    <div id="pad-hint" class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none opacity-20">
+                        <i data-lucide="pen-tool" class="w-16 h-16 mb-2"></i>
+                        <p class="text-sm font-black uppercase tracking-widest">Sketch Your Path</p>
+                    </div>
+                    <div id="play-bar" class="absolute bottom-0 left-0 h-1.5 bg-blue-500 w-0 transition-all duration-300"></div>
+                </div>
+                <div class="flex gap-4 mt-8 w-full max-w-sm">
+                    <button onclick="playSketch()" id="run-btn" class="flex-1 py-5 rounded-2xl bg-green-600 font-black uppercase tracking-wider flex items-center justify-center gap-3 hover:bg-green-500 transition-all shadow-lg shadow-green-500/20">
+                        <i data-lucide="play" class="w-5 h-5 fill-current"></i> Execute
+                    </button>
+                    <button onclick="clearSketch()" class="p-5 rounded-2xl bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-white transition-all">
+                        <i data-lucide="trash-2" class="w-6 h-6"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Mode: Gesture -->
+            <div id="view-gesture" class="mode-view hidden flex-1 flex flex-col items-center w-full">
+                <div id="sensor-area" class="relative w-full aspect-video bg-black rounded-[2rem] border border-slate-800 overflow-hidden touch-none">
+                    <video id="cam" autoplay playsinline muted class="w-full h-full object-cover grayscale opacity-30 scale-x-[-1]"></video>
+                    
+                    <div class="absolute inset-0 grid grid-cols-3 grid-rows-3 pointer-events-none" id="grid-overlay">
+                        <!-- Detection Zones -->
+                        <div class="border border-white/5 flex items-center justify-center"><i data-lucide="arrow-up" class="opacity-5 z-F"></i></div>
+                        <div class="border border-white/5 flex items-center justify-center bg-blue-500/0 transition-colors z-F-bg"><i data-lucide="arrow-up" class="opacity-5 z-F w-12 h-12"></i></div>
+                        <div class="border border-white/5 flex items-center justify-center"><i data-lucide="arrow-up" class="opacity-5 z-F"></i></div>
+                        
+                        <div class="border border-white/5 flex items-center justify-center bg-blue-500/0 transition-colors z-L-bg"><i data-lucide="arrow-left" class="opacity-5 z-L w-12 h-12"></i></div>
+                        <div class="border border-white/5 flex items-center justify-center"><i data-lucide="hand" class="opacity-10 z-S w-16 h-16"></i></div>
+                        <div class="border border-white/5 flex items-center justify-center bg-blue-500/0 transition-colors z-R-bg"><i data-lucide="arrow-right" class="opacity-5 z-R w-12 h-12"></i></div>
+                        
+                        <div class="border border-white/5 flex items-center justify-center"><i data-lucide="arrow-down" class="opacity-5 z-B"></i></div>
+                        <div class="border border-white/5 flex items-center justify-center bg-red-500/0 transition-colors z-B-bg"><i data-lucide="arrow-down" class="opacity-5 z-B w-12 h-12"></i></div>
+                        <div class="border border-white/5 flex items-center justify-center"><i data-lucide="arrow-down" class="opacity-5 z-B"></i></div>
+                    </div>
+
+                    <div class="absolute top-6 left-6 bg-black/60 backdrop-blur-md px-4 py-2 rounded-full text-[10px] font-black border border-white/10 flex items-center gap-2">
+                        <div class="w-2 h-2 rounded-full bg-red-500 animate-pulse"></div> SIGNAL: SENSOR_READY
+                    </div>
+                </div>
+                <p class="mt-6 text-xs text-slate-500 italic font-medium tracking-wide">Hover your cursor or hand over zones to steer</p>
+            </div>
+
+            <!-- Global Footer -->
+            <footer class="w-full mt-auto pt-10 border-t border-slate-800/50">
+                <div class="flex justify-between text-[10px] font-black text-slate-600 uppercase tracking-widest mb-4">
+                    Motor Power Output <span class="text-blue-400 text-sm font-mono" id="val-speed">75%</span>
+                </div>
+                <input type="range" id="slider-speed" min="20" max="100" step="5" value="75" class="w-full h-2 rounded-full cursor-pointer">
+            </footer>
+        </main>
+    </div>
+
+    <!-- Firebase SDK Implementation -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js";
+        import { getDatabase, ref, set } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-database.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyCRkRxDxhIgZYMZm4GqOBlqKz4SrVcY_JM",
+            authDomain: "rc-car-ace9d.firebaseapp.com",
+            databaseURL: "https://rc-car-ace9d-default-rtdb.firebaseio.com",
+            projectId: "rc-car-ace9d",
+            storageBucket: "rc-car-ace9d.firebasestorage.app",
+            messagingSenderId: "659429363897",
+            appId: "1:659429363897:web:00814c87b25c2227f64b68"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getDatabase(app);
+        const appId = 'rc-car-ace9d';
+
+        // State Management
+        let user = null;
+        let mode = 'manual';
+        let action = 'S';
+        let lightState = false;
+        let speed = 75;
+        let runningPath = false;
+        let stream = null;
+
+        // Initialize Icons
+        lucide.createIcons();
+
+        // Auth Loop
+        signInAnonymously(auth).catch(e => console.error("Auth Fail", e));
+        onAuthStateChanged(auth, u => {
+            user = u;
+            if (u) {
+                document.getElementById('conn-status').innerText = `Linked • ${u.uid.slice(0, 8)}`;
+                addLog("System Online");
+            }
+        });
+
+        // --- Core Communication ---
+        window.send = async (cmd) => {
+            if (!user || (runningPath && cmd !== 'S')) return;
+            
+            action = cmd;
+            const path = `artifacts/${appId}/public/data/commands/current`;
+            
+            // UI Feedback for manual buttons
+            document.querySelectorAll('.ctrl-btn').forEach(b => b.classList.remove('btn-active'));
+            const btn = document.getElementById(`key-${cmd}`);
+            if (btn) btn.classList.add('btn-active');
+
+            try {
+                await set(ref(db, path), {
+                    action: cmd,
+                    lights: lightState,
+                    speed: speed,
+                    timestamp: Date.now(),
+                    sender: user.uid
+                });
+            } catch (err) { console.error(err); }
+        };
+
+        window.toggleHeadlights = () => {
+            lightState = !lightState;
+            const btn = document.getElementById('light-btn');
+            const icon = document.getElementById('light-icon');
+            
+            if (lightState) {
+                btn.className = "p-4 rounded-2xl bg-yellow-500/20 text-yellow-500 shadow-lg shadow-yellow-500/10 border border-yellow-500/20";
+                icon.setAttribute('data-lucide', 'sun');
+                addLog("Headlights ON");
+            } else {
+                btn.className = "p-4 rounded-2xl bg-slate-800 text-slate-500";
+                icon.setAttribute('data-lucide', 'moon');
+                addLog("Headlights OFF");
+            }
+            lucide.createIcons();
+            window.send(action);
+        };
+
+        window.eStop = () => {
+            runningPath = false;
+            window.send('S');
+            addLog("EMERGENCY STOP");
+        };
+
+        function addLog(msg) {
+            const container = document.getElementById('log-container');
+            const p = document.createElement('p');
+            p.className = "text-[10px] font-mono border-b border-slate-800 pb-1 flex justify-between";
+            p.innerHTML = `<span class="text-slate-500">${new Date().toLocaleTimeString()}</span> <span class="text-slate-300">${msg}</span>`;
+            container.prepend(p);
+            if(container.children.length > 8) container.lastElementChild.remove();
+        }
+
+        // --- View Controller ---
+        window.setMode = (m) => {
+            mode = m;
+            document.querySelectorAll('.mode-tab').forEach(t => t.classList.remove('active'));
+            document.getElementById(`tab-${m}`).classList.add('active');
+            
+            document.querySelectorAll('.mode-view').forEach(v => v.classList.add('hidden'));
+            document.getElementById(`view-${m}`).classList.remove('hidden');
+
+            const icons = { manual: 'square', track: 'pen-tool', gesture: 'camera' };
+            document.getElementById('main-icon').setAttribute('data-lucide', icons[m]);
+            lucide.createIcons();
+
+            addLog(`Mode: ${m.toUpperCase()}`);
+
+            if (m === 'gesture') initCam();
+            else stopCam();
+        };
+
+        // --- Track Pad Functionality ---
+        const canvas = document.getElementById('pad');
+        const ctx = canvas.getContext('2d');
+        let isDrawing = false;
+        let points = [];
+
+        canvas.addEventListener('mousedown', start);
+        canvas.addEventListener('mousemove', move);
+        canvas.addEventListener('mouseup', end);
+        canvas.addEventListener('touchstart', e => { e.preventDefault(); start(e.touches[0]); });
+        canvas.addEventListener('touchmove', e => { e.preventDefault(); move(e.touches[0]); });
+        canvas.addEventListener('touchend', end);
+
+        function start(e) {
+            isDrawing = true;
+            points = [];
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.beginPath();
+            ctx.strokeStyle = '#3b82f6';
+            ctx.lineWidth = 6;
+            ctx.lineCap = 'round';
+            document.getElementById('pad-hint').classList.add('hidden');
+        }
+
+        function move(e) {
+            if (!isDrawing) return;
+            const rect = canvas.getBoundingClientRect();
+            const x = (e.clientX - rect.left) * (canvas.width / rect.width);
+            const y = (e.clientY - rect.top) * (canvas.height / rect.height);
+            ctx.lineTo(x, y);
+            ctx.stroke();
+            points.push({x, y});
+        }
+
+        function end() { isDrawing = false; }
+
+        window.clearSketch = () => {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            points = [];
+            document.getElementById('pad-hint').classList.remove('hidden');
+            document.getElementById('play-bar').style.width = '0%';
+        };
+
+        window.playSketch = async () => {
+            if (points.length < 15 || runningPath) return;
+            runningPath = true;
+            addLog("Executing Path...");
+            
+            const cmds = [];
+            for(let i = 10; i < points.length; i += 10) {
+                const pA = points[i-10], pB = points[i];
+                const angle = Math.atan2(pB.y - pA.y, pB.x - pA.x) * 180 / Math.PI;
+                let c = 'F';
+                if (angle > -135 && angle < -45) c = 'F';
+                else if (angle > 45 && angle < 135) c = 'B';
+                else if (angle >= -45 && angle <= 45) c = 'R';
+                else c = 'L';
+                cmds.push(c);
+            }
+
+            for(let i = 0; i < cmds.length; i++) {
+                if (!runningPath) break;
+                document.getElementById('play-bar').style.width = `${(i/cmds.length)*100}%`;
+                window.send(cmds[i]);
+                await new Promise(r => setTimeout(r, 250));
+            }
+            window.send('S');
+            runningPath = false;
+            addLog("Path Finished");
+        };
+
+        // --- Gesture Sensor Functionality ---
+        const video = document.getElementById('cam');
+        async function initCam() {
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } });
+                video.srcObject = stream;
+            } catch (e) { console.error(e); window.setMode('manual'); }
+        }
+
+        function stopCam() {
+            if (stream) stream.getTracks().forEach(t => t.stop());
+            stream = null;
+        }
+
+        const area = document.getElementById('sensor-area');
+        area.addEventListener('mousemove', e => {
+            if (mode !== 'gesture') return;
+            const rect = area.getBoundingClientRect();
+            const x = (e.clientX - rect.left) / rect.width;
+            const y = (e.clientY - rect.top) / rect.height;
+            
+            let cmd = 'S';
+            if (y < 0.33) cmd = 'F';
+            else if (y > 0.66) cmd = 'B';
+            else if (x < 0.33) cmd = 'L';
+            else if (x > 0.66) cmd = 'R';
+            
+            // Overlay logic
+            document.querySelectorAll('#grid-overlay i').forEach(i => i.classList.remove('opacity-100', 'text-blue-400', 'text-red-400', 'animate-bounce'));
+            document.querySelectorAll('[class*="-bg"]').forEach(b => b.classList.remove('bg-blue-500/20', 'bg-red-500/20'));
+
+            if (cmd !== 'S') {
+                const icons = document.querySelectorAll(`.z-${cmd}`);
+                icons.forEach(i => {
+                    i.classList.add('opacity-100', cmd === 'B' ? 'text-red-400' : 'text-blue-400', 'animate-bounce');
+                });
+                const bg = document.querySelector(`.z-${cmd}-bg`);
+                if(bg) bg.classList.add(cmd === 'B' ? 'bg-red-500/20' : 'bg-blue-500/20');
+            } else {
+                document.querySelector('.z-S').classList.add('opacity-100', 'text-white');
+            }
+
+            window.send(cmd);
+        });
+
+        area.addEventListener('mouseleave', () => window.send('S'));
+
+        // --- Hardware Config Listeners ---
+        document.getElementById('slider-speed').addEventListener('input', (e) => {
+            speed = e.target.value;
+            document.getElementById('val-speed').innerText = `${speed}%`;
+            window.send(action);
+        });
+
+        window.addEventListener('keydown', (e) => {
+            if (e.repeat) return;
+            const keys = { ArrowUp: 'F', ArrowDown: 'B', ArrowLeft: 'L', ArrowRight: 'R', ' ': 'S' };
+            if (keys[e.key]) window.send(keys[e.key]);
+        });
+
+        window.addEventListener('keyup', (e) => {
+            if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) window.send('S');
+        });
+
+    </script>
+</body>
+</html>
